@@ -32,20 +32,51 @@ class Users
         @lname = options['lname']
     end
 
+    def authored_questions
+        Questions.find_by_author_id(self.id)
+    end
+
+    def authored_replies
+        Replies.find_by_user_id(self.id)
+    end
 
 end
 
 class Questions
+
+    attr_accessor :id, :title, :body, :author_id
 
     def self.find_by_id(id)
         data = QuestionsConnection.instance.execute("SELECT * FROM questions WHERE id = '#{id}'")
         data.map {|datum| Questions.new(datum)}
     end
 
+    def find_by_author_id(author_id)
+        data = QuestionsConnection.instance.execute("SELECT * FROM questions WHERE author_id = '#{author_id}'") 
+        data.map {|datum| Questions.new(datum)}
+        # data = QuestionsConnection.instance.execute(<<-SQL, author_id)
+        #     SELECT
+        #         *
+        #     FROM
+        #         questions
+        #     WHERE
+        #         id = ?
+        # SQL
+    end
+
     def initialize(options)
         @id = options['id']
-        @fname = options['fname']
-        @lname = options['lname']
+        @title = options['title']
+        @body = options['body']
+        @author_id = options ['author_id']
+    end
+
+    def author
+        Users.find_by_id(@author_id)
+    end
+
+    def replies
+        Replies.find_by_question_id(@id)
     end
 
 end
@@ -59,23 +90,63 @@ class QuestionFollows
 
     def initialize(options)
         @id = options['id']
-        @fname = options['fname']
-        @lname = options['lname']
+        @author_id = options['author_id']
+        @question_id = options['question_id']
     end
 
 end
 
 class Replies
 
+    attr_accessor :question_id, :id, :parent_reply_id, :reply_user_id, :body
+
     def self.find_by_id(id)
         data = QuestionsConnection.instance.execute("SELECT * FROM replies WHERE id = '#{id}'")
         data.map {|datum| Replies.new(datum)}
     end
 
+    def self.find_by_user_id(user_id)
+        data = QuestionsConnection.instance.execute("SELECT * FROM replies WHERE user_id = '#{user_id}'")
+        data.map {|datum| Replies.new(datum)}
+    end
+
+    def self.find_by_question_id(question_id)
+        data = QuestionsConnection.instance.execute("SELECT * FROM replies WHERE question_id = '#{question_id}'")
+        data.map {|datum| Replies.new(datum)}
+    end
+
+
     def initialize(options)
         @id = options['id']
-        @fname = options['fname']
-        @lname = options['lname']
+        @question_id = options['question_id']
+        @parent_reply_id = options['parent_reply_id']
+        @reply_user_id = options['reply_user_id']
+        @body = options['body']
+    end
+
+    def author
+        Users.find_by_id(<<-SQL)
+            SELECT
+                id
+            FROM
+                users
+            JOIN 
+                questions ON questions.author_id = users.id
+            WHERE
+                questions.id = #{@question_id}
+        SQL
+    end
+
+    def question
+        Questions.find_by_question_id(@question_id)
+    end
+
+    def parent_reply
+        Users.find_by_id(@parent_reply_id)
+    end
+
+    def child_replies
+        Users.find_by_id(@reply_user_id)
     end
 
 end
@@ -89,8 +160,8 @@ class QuestionLikes
 
     def initialize(options)
         @id = options['id']
-        @fname = options['fname']
-        @lname = options['lname']
+        @like_user_id = options['like_user_id']
+        @question_id = options['question_id']
     end
 
 end
